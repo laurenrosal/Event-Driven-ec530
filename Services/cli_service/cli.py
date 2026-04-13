@@ -2,6 +2,7 @@ import argparse
 import json
 import uuid
 from datetime import datetime, timezone
+from Messaging.broker import Broker
 
 def upload(image_path: str):
     # connect the broker and pushlish image.submitted event
@@ -18,6 +19,8 @@ def upload(image_path: str):
     #publishes an image.submitted event to the message broker.
     print(f"[CLI] Uploading image: {image_path}")
     print(json.dumps(event, indent=2))
+    broker = Broker()
+    broker.publish(event["topic"], event)
 
 def search(description: str):
 
@@ -35,6 +38,8 @@ def search(description: str):
     # pulished a query.submitted event to the message broker
     print(f"[CLI] searching for: {description}")
     print(json.dumps(event, indent=2))
+    broker = Broker()
+    broker.publish(event["topic"], event)
 
 def main():
     parser = argparse.ArgumentParser(prog="cli")
