@@ -23,7 +23,30 @@ components are simulated modules with defined APIs and message contracts.
 ---
 
 ## Project Structure
-Event-driven/ ├── services/ │ ├── cli_service/ # Entry point for upload and search │ │ ├── init.py │ │ ├── cli.py │ │ └── test_cli.py │ ├── upload_service/ # Receives image, fires image.submitted │ ├── image_processing_service/ # Processes image, fires inference.completed │ ├── annotation_service/ # Annotates objects, fires annotation.stored │ ├── embedding_service/ # Creates vector, fires embedding.created │ └── query_service/ # Handles search queries via vector DB ├── databases/ │ ├── document_db/ # Stores annotation JSON │ └── vector_db/ # Stores vectors, returns matches (FAISS) ├── messaging/ │ ├── init.py │ ├── topics.py # All topic name constants │ ├── broker.py # Redis pub/sub interface │ └── event_generator.py # Simulates and replays events for testing ├── tests/ │ └── test_messaging.py # Unit tests for messaging system └── README.md
+```
+Event-driven/
+├── services/
+│   ├── cli_service/              # Entry point for upload and search
+│   │   ├── __init__.py
+│   │   ├── cli.py
+│   │   └── test_cli.py
+│   ├── upload_service/           # Receives image, fires image.submitted
+│   ├── image_processing_service/ # Processes image, fires inference.completed
+│   ├── annotation_service/       # Annotates objects, fires annotation.stored
+│   ├── embedding_service/        # Creates vector, fires embedding.created
+│   └── query_service/            # Handles search queries via vector DB
+├── databases/
+│   ├── document_db/              # Stores annotation JSON
+│   └── vector_db/                # Stores vectors, returns matches (FAISS)
+├── messaging/
+│   ├── __init__.py
+│   ├── topics.py                 # All topic name constants
+│   ├── broker.py                 # Redis pub/sub interface
+│   └── event_generator.py        # Simulates and replays events for testing
+├── tests/
+│   └── test_messaging.py         # Unit tests for messaging system
+└── README.md
+```
 
 
 ---
