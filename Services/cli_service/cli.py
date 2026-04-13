@@ -1,16 +1,40 @@
 import argparse
+import json
+import uuid
+from datetime import datetime, timezone
 
 def upload(image_path: str):
+    # connect the broker and pushlish image.submitted event
+    event ={
+        "type": "publish",
+        "topic": "image.submitted",
+        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+        "payload": {
+            "image_id": f"img_{uuid.uuid4().hex[:8]}",
+            "path": image_path,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
     #publishes an image.submitted event to the message broker.
     print(f"[CLI] Uploading image: {image_path}")
-    # TODO: connect the broker and pushlish image.submitted event
-
+    print(json.dumps(event, indent=2))
 
 def search(description: str):
+
+    # connect to broker and publish query.submitted event
+    event = {
+        "type": "publish",
+        "topic": "query.submitted",
+        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+        "payload": {
+            "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+            "description": description,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
     # pulished a query.submitted event to the message broker
     print(f"[CLI] searching for: {description}")
-    # TODO: connect to broker and publish query.submitted event
-
+    print(json.dumps(event, indent=2))
 
 def main():
     parser = argparse.ArgumentParser(prog="cli")
