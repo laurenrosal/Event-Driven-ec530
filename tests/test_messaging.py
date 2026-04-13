@@ -5,6 +5,7 @@ from Messaging.event_generator import EventGenerator
 from Messaging.topics import IMAGE_SUBMITTED, QUERY_SUBMITTED
 
 # ─── Fixtures ───────────────────────────────────────────────
+# python3 -m pytest tests/test_messaging.py -v
 
 @pytest.fixture
 def generator():
