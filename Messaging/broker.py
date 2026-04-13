@@ -3,8 +3,8 @@ import json
 from Messaging.topics import ALL_TOPICS
 
 class Broker:
-    def __inti__(self, host="localhost", port=6379):
-        self.client = redis.Redis(host=host, port=port, decode_reponses=True)
+    def __init__(self, host="localhost", port=6379):
+        self.client = redis.Redis(host=host, port=port, decode_responses=True)
         self.pubsub = self.client.pubsub()
     
 

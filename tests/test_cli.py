@@ -1,4 +1,4 @@
-from cli import upload, search
+from Services.cli_service.cli import upload, search
 
 def test_upload_runs():
     upload("images/test.jpg")

@@ -5,7 +5,7 @@ INFERENCE_COMPLETED = "inference.completed"
 ANNOTATION_STORED = "annotation.stored"
 EMBEDDING_CREATED = "embedding.created"
 ANNOTATION_CORRECTED = "annoation.corrected"
-QUERY_SUBMITTED = "query,submitted"
+QUERY_SUBMITTED = "query.submitted"
 QUERY_COMPLETED = "query.completed"
 
 ALL_TOPICS = [
@@ -14,6 +14,6 @@ ALL_TOPICS = [
     ANNOTATION_STORED,
     EMBEDDING_CREATED,
     ANNOTATION_CORRECTED,
-    QUERY_COMPLETED,
+    QUERY_SUBMITTED,
     QUERY_COMPLETED,
 ]
