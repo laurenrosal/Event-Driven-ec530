@@ -56,6 +56,7 @@ Event-driven/
 ### Upload flow AND Search flow 
 
 ![My Image](architecture.png)
+![My Image](flow.png)
 
 
 
