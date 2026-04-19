@@ -3,6 +3,7 @@ import uuid
 import time
 from datetime import datetime, timezone
 from Messaging.broker import Broker
+from databases.document_db.document_db import DocumentDB
 from Messaging.topics import (
     ANNOTATION_STORING,
     ANNOTATION_STORED,
@@ -63,6 +64,14 @@ def handle_annotation_storing(message):
         print(f"[Annotation Service] Found {len(annotation['objects'])} objects")
 
         # Step 3 — publish annotation.storing (saving to document DB)
+        db = DocumentDB()
+        db.store_annotation(
+            image_id=image_id,
+            batch_id=batch_id,
+            path=path,
+            annotation=annotation
+        )
+        # Step 4 — publish annotation.stored
         broker.publish(ANNOTATION_STORED, {
             "type": "publish",
             "topic": ANNOTATION_STORED,
@@ -77,7 +86,7 @@ def handle_annotation_storing(message):
         })
         print(f"[Annotation Service] annotation.stored published for: {image_id}")
 
-        # Step 4 — publish image.annotated
+        # Step 5 — publish image.annotated
         broker.publish(IMAGE_ANNOTATED, {
             "type": "publish",
             "topic": IMAGE_ANNOTATED,

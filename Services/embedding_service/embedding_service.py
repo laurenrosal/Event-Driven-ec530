@@ -3,6 +3,7 @@ import uuid
 import time
 from datetime import datetime, timezone
 from Messaging.broker import Broker
+from databases.vector_db.vector_db import VectorDB
 from Messaging.topics import (
     EMBEDDING_PROCESSING,
     EMBEDDING_COMPLETE,
@@ -57,6 +58,15 @@ def handle_embedding_processing(message):
         print(f"[Embedding Service] embedding.complete published for: {image_id}")
 
         # Step 3 — publish vector.storing (sending to vector DB)
+        db = VectorDB()
+        db.store_vector(
+            image_id=image_id,
+            batch_id=batch_id,
+            path=payload.get("path", ""),
+            vector=vector
+        )
+
+        # Step 4 — publish vector.storing
         broker.publish(VECTOR_STORING, {
             "type": "publish",
             "topic": VECTOR_STORING,
@@ -64,14 +74,13 @@ def handle_embedding_processing(message):
             "payload": {
                 "image_id": image_id,
                 "batch_id": batch_id,
-                "vector": vector,
-                "annotation": annotation,
+                "vector_size": len(vector),
                 "timestamp": get_timestamp()
             }
         })
         print(f"[Embedding Service] vector.storing published for: {image_id}")
 
-        # Step 4 — publish vector.stored (confirmed stored)
+        # Step 5 — publish vector.stored
         broker.publish(VECTOR_STORED, {
             "type": "publish",
             "topic": VECTOR_STORED,
