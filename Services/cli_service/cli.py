@@ -3,52 +3,65 @@ import json
 import uuid
 from datetime import datetime, timezone
 from Messaging.broker import Broker
+from Messaging.topics import IMAGE_SUBMITTED, QUERY_SUBMITTED
 
-def upload(image_path: str):
-    # connect the broker and pushlish image.submitted event
-    event ={
-        "type": "publish",
-        "topic": "image.submitted",
-        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
-        "payload": {
-            "image_id": f"img_{uuid.uuid4().hex[:8]}",
-            "path": image_path,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    }
-    #publishes an image.submitted event to the message broker.
-    print(f"[CLI] Uploading image: {image_path}")
-    print(json.dumps(event, indent=2))
+def get_timestamp():
+    return datetime.now(timezone.utc).isoformat()
+
+def upload_batch(image_paths: list):
     broker = Broker()
-    broker.publish(event["topic"], event)
+    batch_id = f"batch_{uuid.uuid4().hex[:8]}"
+    print(f"\n[CLI] Starting batch upload: {batch_id}")
+    print(f"[CLI] Total images: {len(image_paths)}\n")
+
+    for image_path in image_paths:
+        event = {
+            "type": "publish",
+            "topic": IMAGE_SUBMITTED,
+            "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+            "payload": {
+                "batch_id": batch_id,
+                "image_id": f"img_{uuid.uuid4().hex[:8]}",
+                "path": image_path,
+                "timestamp": get_timestamp()
+            }
+        }
+        try:
+            broker.publish(IMAGE_SUBMITTED, event)
+            print(f"[CLI] Submitted: {image_path}")
+        except ValueError as e:
+            print(f"[CLI] Rejected: {image_path} — {e}")
+
+    print(f"\n[CLI] Batch {batch_id} submitted successfully!")
 
 def search(description: str):
-
-    # connect to broker and publish query.submitted event
+    broker = Broker()
     event = {
         "type": "publish",
-        "topic": "query.submitted",
+        "topic": QUERY_SUBMITTED,
         "event_id": f"evt_{uuid.uuid4().hex[:8]}",
         "payload": {
             "query_id": f"qry_{uuid.uuid4().hex[:8]}",
             "description": description,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": get_timestamp()
         }
     }
-    # pulished a query.submitted event to the message broker
-    print(f"[CLI] searching for: {description}")
-    print(json.dumps(event, indent=2))
-    broker = Broker()
-    broker.publish(event["topic"], event)
+    try:
+        broker.publish(QUERY_SUBMITTED, event)
+        print(f"\n[CLI] Search submitted: '{description}'")
+    except ValueError as e:
+        print(f"[CLI] Search rejected — {e}")
 
 def main():
     parser = argparse.ArgumentParser(prog="cli")
     subparsers = parser.add_subparsers(dest="command")
 
-
-    upload_parser = subparsers.add_parser(upload)
-    upload_parser.add_argument("image_path")
-
+    upload_parser = subparsers.add_parser("upload")
+    upload_parser.add_argument(
+        "image_paths",
+        nargs="+",  # accepts one or more images
+        help="One or more image paths to upload"
+    )
 
     search_parser = subparsers.add_parser("search")
     search_parser.add_argument("description")
@@ -56,8 +69,8 @@ def main():
     args = parser.parse_args()
 
     if args.command == "upload":
-        upload(args.image_path)
-    elif args.command == search:
+        upload_batch(args.image_paths)
+    elif args.command == "search":
         search(args.description)
     else:
         parser.print_help()
