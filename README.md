@@ -7,170 +7,125 @@ Lauren Rosales
 
 ## Overview
 
-A modular, event-driven pipeline for image annotation and retrieval.
-The system has two independent flows:
+A modular event-driven pipeline for image annotation and retrieval. The system has two flows:
 
-- **Upload flow** — a user submits an image through the CLI, which triggers
-  a chain of events through image processing, annotation, and embedding,
-  storing results in both a document database and a vector database.
+- **Upload flow** — batch upload images through the CLI, each image is tracked individually through processing, annotation, and embedding, stored in MongoDB and FAISS.
+- **Search flow** — type a description through the CLI, query the vector database, and get matching images back.
 
-- **Search flow** — a user types a text description through the CLI, which
-  sends a query directly to the vector database and returns matching images.
+No AI models are trained. Inference and embedding are simulated for now and will be swapped out with real implementations in week 2.
 
-No AI models are trained or implemented. All inference and embedding
-components are simulated modules with defined APIs and message contracts.
+---
+
+## Stack
+
+- **Messaging** — Redis Cloud (pub/sub)
+- **Document DB** — MongoDB Atlas (annotation JSON)
+- **Vector DB** — FAISS (embeddings)
 
 ---
 
 ## Project Structure
+
 ```
 Event-driven/
-├── services/
-│   ├── cli_service/              # Entry point for upload and search
-│   │   ├── __init__.py
-│   │   ├── cli.py
-│   │   └── test_cli.py
-│   ├── upload_service/           # Receives image, fires image.submitted
-│   ├── image_processing_service/ # Processes image, fires inference.completed
-│   ├── annotation_service/       # Annotates objects, fires annotation.stored
-│   ├── embedding_service/        # Creates vector, fires embedding.created
-│   └── query_service/            # Handles search queries via vector DB
+├── Services/
+│   ├── cli_service/
+│   ├── upload_service/
+│   ├── image_processing_service/
+│   ├── annotation_service/
+│   ├── embedding_service/
+│   └── query_service/
 ├── databases/
-│   ├── document_db/              # Stores annotation JSON
-│   └── vector_db/                # Stores vectors, returns matches (FAISS)
-├── messaging/
-│   ├── __init__.py
-│   ├── topics.py                 # All topic name constants
-│   ├── broker.py                 # Redis pub/sub interface
-│   └── event_generator.py        # Simulates and replays events for testing
+│   ├── document_db/
+│   └── vector_db/
+├── Messaging/
+│   ├── broker.py
+│   ├── topics.py
+│   └── event_generator.py
 ├── tests/
-│   └── test_messaging.py         # Unit tests for messaging system
+├── .env
 └── README.md
-```
-
-
----
-
-## Event Flow
-
-### Upload flow AND Search flow 
-
-![My Image](architecture.png)
-![My Image](flow.png)
-
-
-
----
-
-## Topics
-
-| Topic | Publisher | Subscriber |
-|---|---|---|
-| `image.submitted` | CLI / upload service | Image processing service |
-| `inference.completed` | Image processing service | Annotation service |
-| `annotation.stored` | Annotation service | Embedding service |
-| `embedding.created` | Embedding service | Vector database |
-| `annotation.corrected` | CLI / reviewer | Annotation service |
-| `query.submitted` | CLI | Query service |
-| `query.completed` | Query service | CLI |
-
----
-
-## Event Schema
-
-All events follow this structure:
-
-```json
-{
-  "type": "publish",
-  "topic": "image.submitted",
-  "event_id": "evt_3f2a1b4c",
-  "payload": {
-    "image_id": "img_9a7c2d1e",
-    "path": "images/street_1042.jpg",
-    "timestamp": "2026-04-13T14:33:00Z"
-  }
-}
 ```
 
 ---
 
 ## Setup
 
-### Requirements
-- Python 3.9+
-- Docker
-
-### 1. Clone the repo and navigate to the project
 ```bash
-cd Event-driven
+pip install redis pymongo faiss-cpu numpy python-dotenv
 ```
 
-### 2. Install dependencies
-```bash
-pip install redis pytest
+Create a `.env` file in the root:
 ```
-
-### 3. Start Redis
-```bash
-docker run -d -p 6379:6379 --name redis-local redis
-```
-
-### 4. Verify Redis is running
-```bash
-docker ps
+REDIS_HOST=your-host
+REDIS_PORT=your-port
+REDIS_PASSWORD=your-password
+MONGO_URI=your-mongo-uri
+MONGO_DB_NAME=event_driven_db
 ```
 
 ---
 
-## Running the CLI
+## Running the pipeline
 
-### Upload an image
-```bash
-python3 services/cli_service/cli.py upload images/mycat.jpg
-```
+Open 5 terminals:
 
-### Search for images
 ```bash
-python3 services/cli_service/cli.py search "a cat with a halloween costume"
+# Terminal 1
+python3 -m Services.upload_service.upload_service
+
+# Terminal 2
+python3 -m Services.image_processing_service.image_processing_service
+
+# Terminal 3
+python3 -m Services.annotation_service.annotation_service
+
+# Terminal 4
+python3 -m Services.embedding_service.embedding_service
+
+# Terminal 5 — upload images
+python3 -m Services.cli_service.cli upload images/cat.jpg images/dog.jpg
+
+# Terminal 5 — search
+python3 -m Services.cli_service.cli search "a cat with a halloween costume"
 ```
 
 ---
 
-## Running the Tests
+## Topics
 
-```bash
-python3 -m pytest tests/test_messaging.py -v
-```
-
-Expected output: **15 passed**
-
-### What the tests cover
-- Valid events contain all required fields (`type`, `topic`, `event_id`, `payload`)
-- Malformed events are rejected without crashing the system
-- Duplicate events do not create duplicate state
-- Event generator works without a live Redis broker (using mocks)
-- Deterministic replay mode produces consistent events with a seed
-
----
-
-## System Guarantees
-
-| Guarantee | Description |
+| Topic | Description |
 |---|---|
-| **Idempotency** | Duplicate events do not create duplicate state |
-| **Robustness** | Malformed events are rejected without crashing |
-| **Eventual consistency** | System may be temporarily incomplete but converges |
-| **Accurate queries** | Queries reflect the current processed state |
+| `image.submitted` | CLI uploads image |
+| `image.received` | Upload service confirms receipt |
+| `image.validated` | File type confirmed valid |
+| `image.invalid` | File type rejected |
+| `image.processing` | Handed to image processing |
+| `image.processing.complete` | Processing done |
+| `annotation.storing` | Sent to annotation service |
+| `annotation.stored` | Saved to MongoDB |
+| `image.annotating` | Annotation in progress |
+| `image.annotated` | Annotation complete |
+| `embedding.processing` | Sent to embedding service |
+| `embedding.complete` | Embedding generated |
+| `vector.storing` | Sending to FAISS |
+| `vector.stored` | Saved to FAISS |
+| `query.submitted` | CLI submits search |
+| `query.completed` | Results returned |
 
 ---
 
-## What's Not Built Yet (Week 2)
+## Tests
 
-- Annotation service implementation
-- Document database service
-- Embedding service implementation
-- Vector database / FAISS integration
-- Query service implementation
-- Simulated inference data (provided by instructor next week)
-Type that out into a file called README.md in the root of your project folder. Once you've done that you're fully ready for tomorrow — you've got the structure, the messaging system, the tests, and the documentation all done!
+```bash
+python3 -m pytest tests/ -v
+```
+
+---
+
+## What's simulated (week 2 will replace these)
+
+- Image processing — returns fake metadata
+- Annotation — returns hardcoded object labels
+- Embedding — returns random 128-dim vector
+- Vector search — returns random matches
