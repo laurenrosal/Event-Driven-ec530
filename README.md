@@ -14,6 +14,9 @@ A modular event-driven pipeline for image annotation and retrieval. The system h
 
 No AI models are trained. Inference and embedding are simulated for now and will be swapped out with real implementations in week 2.
 
+![My Image](architecture.png)
+![My Image](flow.png)
+
 ---
 
 ## Stack
