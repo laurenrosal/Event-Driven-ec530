@@ -8,7 +8,6 @@ from Messaging.topics import (
     IMAGE_VALIDATED,
     IMAGE_INVALID,
     IMAGE_PROCESSING,
-    IMAGE_FAILED
 )
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
