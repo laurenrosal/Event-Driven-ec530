@@ -8,6 +8,7 @@ from Messaging.topics import (
     IMAGE_VALIDATED,
     IMAGE_INVALID,
     IMAGE_PROCESSING,
+    IMAGE_FAILED
 )
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -94,6 +95,19 @@ def handle_image_submitted(message):
 
     except Exception as e:
         print(f"[Upload Service] ERROR: {e}")
+        broker = Broker()
+        broker.publish(IMAGE_FAILED, {
+            "type": "publish",
+            "topic": IMAGE_FAILED,
+            "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+            "payload": {
+                "image_id": image_id,
+                "batch_id": batch_id,
+                "reason": str(e),
+                "timestamp": get_timestamp()
+        }
+    })
+    print(f"[Upload Service] image.failed published for: {image_id}")
 
 def main():
     broker = Broker()

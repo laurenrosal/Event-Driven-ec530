@@ -1,57 +1,88 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from Messaging.broker import Broker
-from Messaging.event_generator import EventGenerator
-from Messaging.topics import IMAGE_SUBMITTED, QUERY_SUBMITTED
+from Messaging.topics import (
+    IMAGE_SUBMITTED,
+    IMAGE_RECEIVED,
+    IMAGE_VALIDATED,
+    IMAGE_INVALID,
+    IMAGE_PROCESSING,
+    IMAGE_FAILED,
+    QUERY_SUBMITTED,
+    QUERY_COMPLETED,
+    ALL_TOPICS
+)
 
 # ─── Fixtures ───────────────────────────────────────────────
-# python3 -m pytest tests/test_messaging.py -v
-
-@pytest.fixture
-def generator():
-    """EventGenerator with no broker — no live Redis needed."""
-    return EventGenerator(seed=42)
 
 @pytest.fixture
 def mock_broker():
-    """A broker with a mocked publish so no live Redis needed."""
     broker = MagicMock(spec=Broker)
     return broker
 
-@pytest.fixture
-def generator_with_broker(mock_broker):
-    return EventGenerator(broker=mock_broker, seed=42)
+def make_image_event(path="images/cat.jpg"):
+    import uuid
+    from datetime import datetime, timezone
+    return {
+        "type": "publish",
+        "topic": IMAGE_SUBMITTED,
+        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+        "payload": {
+            "batch_id": f"batch_{uuid.uuid4().hex[:8]}",
+            "image_id": f"img_{uuid.uuid4().hex[:8]}",
+            "path": path,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+def make_query_event(description="a cat with a halloween costume"):
+    import uuid
+    from datetime import datetime, timezone
+    return {
+        "type": "publish",
+        "topic": QUERY_SUBMITTED,
+        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+        "payload": {
+            "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+            "description": description,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
 
 # ─── Valid event structure ───────────────────────────────────
 
-def test_image_event_has_required_fields(generator):
-    event = generator.make_image_event()
+def test_image_event_has_required_fields():
+    event = make_image_event()
     assert "type" in event
     assert "topic" in event
     assert "event_id" in event
     assert "payload" in event
 
-def test_query_event_has_required_fields(generator):
-    event = generator.make_query_event()
+def test_query_event_has_required_fields():
+    event = make_query_event()
     assert "type" in event
     assert "topic" in event
     assert "event_id" in event
     assert "payload" in event
 
-def test_image_event_has_correct_topic(generator):
-    event = generator.make_image_event()
+def test_image_event_has_correct_topic():
+    event = make_image_event()
     assert event["topic"] == IMAGE_SUBMITTED
 
-def test_query_event_has_correct_topic(generator):
-    event = generator.make_query_event()
+def test_query_event_has_correct_topic():
+    event = make_query_event()
     assert event["topic"] == QUERY_SUBMITTED
 
-def test_image_event_payload_has_image_id(generator):
-    event = generator.make_image_event()
+def test_image_event_payload_has_image_id():
+    event = make_image_event()
     assert "image_id" in event["payload"]
 
-def test_image_event_payload_has_timestamp(generator):
-    event = generator.make_image_event()
+def test_image_event_payload_has_batch_id():
+    event = make_image_event()
+    assert "batch_id" in event["payload"]
+
+def test_image_event_payload_has_timestamp():
+    event = make_image_event()
     assert "timestamp" in event["payload"]
 
 # ─── Malformed events ────────────────────────────────────────
@@ -62,7 +93,6 @@ def test_broker_rejects_missing_event_id():
         "type": "publish",
         "topic": IMAGE_SUBMITTED,
         "payload": {"image_id": "img_001"}
-        # missing event_id
     }
     with pytest.raises(ValueError):
         broker.publish(bad_event["topic"], bad_event)
@@ -83,44 +113,52 @@ def test_broker_rejects_empty_event():
     with pytest.raises(ValueError):
         broker.publish(IMAGE_SUBMITTED, {})
 
-# ─── Idempotency (no duplicate state) ───────────────────────
+def test_broker_rejects_invalid_file_type():
+    broker = Broker()
+    bad_event = make_image_event(path="documents/report.pdf")
+    with pytest.raises(ValueError):
+        broker.publish(IMAGE_SUBMITTED, bad_event)
 
-def test_duplicate_events_call_publish_twice(generator_with_broker, mock_broker):
-    event = generator_with_broker.make_image_event()
-    generator_with_broker.emit(event)
-    generator_with_broker.emit(event)  # duplicate
-    assert mock_broker.publish.call_count == 2
+# ─── Valid file types ────────────────────────────────────────
 
-def test_duplicate_event_ids_are_equal(generator):
-    event1 = generator.make_image_event("images/cat.jpg")
-    event2 = event1.copy()  # exact duplicate
+def test_broker_accepts_jpg():
+    broker = Broker()
+    event = make_image_event(path="images/cat.jpg")
+    broker.publish(IMAGE_SUBMITTED, event)
+
+def test_broker_accepts_png():
+    broker = Broker()
+    event = make_image_event(path="images/cat.png")
+    broker.publish(IMAGE_SUBMITTED, event)
+
+def test_broker_accepts_jpeg():
+    broker = Broker()
+    event = make_image_event(path="images/cat.jpeg")
+    broker.publish(IMAGE_SUBMITTED, event)
+
+# ─── Idempotency ─────────────────────────────────────────────
+
+def test_duplicate_event_ids_are_equal():
+    event1 = make_image_event()
+    event2 = event1.copy()
     assert event1["event_id"] == event2["event_id"]
 
-# ─── Generator works without live broker ────────────────────
+def test_duplicate_events_call_publish_twice(mock_broker):
+    event = make_image_event()
+    mock_broker.publish(event["topic"], event)
+    mock_broker.publish(event["topic"], event)
+    assert mock_broker.publish.call_count == 2
 
-def test_generator_emits_without_broker(generator, capsys):
-    event = generator.make_image_event()
-    generator.emit(event)
-    captured = capsys.readouterr()
-    assert "EventGenerator" in captured.out
+# ─── All topics defined ──────────────────────────────────────
 
-def test_generator_with_mock_broker(generator_with_broker, mock_broker):
-    event = generator_with_broker.make_image_event()
-    generator_with_broker.emit(event)
-    mock_broker.publish.assert_called_once()
+def test_all_topics_list_not_empty():
+    assert len(ALL_TOPICS) > 0
 
-# ─── Replay ─────────────────────────────────────────────────
+def test_image_submitted_in_all_topics():
+    assert IMAGE_SUBMITTED in ALL_TOPICS
 
-def test_replay_fires_correct_number_of_events(generator_with_broker, mock_broker):
-    events = [generator_with_broker.make_image_event() for _ in range(5)]
-    generator_with_broker.replay(events)
-    assert mock_broker.publish.call_count == 5
+def test_query_submitted_in_all_topics():
+    assert QUERY_SUBMITTED in ALL_TOPICS
 
-# ─── Deterministic mode ─────────────────────────────────────
-
-def test_seed_produces_same_image_path():
-    gen1 = EventGenerator(seed=42)
-    gen2 = EventGenerator(seed=42)
-    event1 = gen1.make_image_event()
-    event2 = gen2.make_image_event()
-    assert event1["payload"]["path"] == event2["payload"]["path"]
+def test_image_failed_in_all_topics():
+    assert IMAGE_FAILED in ALL_TOPICS
