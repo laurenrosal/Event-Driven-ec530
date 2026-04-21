@@ -105,7 +105,7 @@ def handle_image_submitted(message):
                 "batch_id": batch_id,
                 "reason": str(e),
                 "timestamp": get_timestamp()
-        }
+            }
     })
     print(f"[Upload Service] image.failed published for: {image_id}")
 
