@@ -23,10 +23,15 @@ class DocumentDB:
             print(f"[Document DB] Connection failed: {e}")
             return False
 
-    def store_annotation(self, image_id: str, batch_id: str, path: str, annotation: dict):
-        """Store annotation JSON for an image."""
+    def annotation_exists(self, image_id: str) -> bool:
         try:
-            # check if already exists (idempotency)
+            return self.collection.find_one({"image_id": image_id}) is not None
+        except Exception as e:
+            print(f"[Document DB] ERROR checking annotation: {e}")
+            raise
+
+    def store_annotation(self, image_id: str, batch_id: str, path: str, annotation: dict):
+        try:
             existing = self.collection.find_one({"image_id": image_id})
             if existing:
                 print(f"[Document DB] Annotation already exists for: {image_id} — skipping")
@@ -50,7 +55,6 @@ class DocumentDB:
             raise
 
     def get_annotation(self, image_id: str):
-        """Retrieve annotation for a specific image."""
         try:
             record = self.collection.find_one({"image_id": image_id})
             if record:
@@ -65,7 +69,6 @@ class DocumentDB:
             raise
 
     def get_batch(self, batch_id: str):
-        """Retrieve all annotations for a batch."""
         try:
             records = list(self.collection.find({"batch_id": batch_id}))
             for record in records:

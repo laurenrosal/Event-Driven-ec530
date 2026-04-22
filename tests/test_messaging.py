@@ -12,6 +12,7 @@ from Messaging.topics import (
     QUERY_COMPLETED,
     ALL_TOPICS
 )
+# python3 -m pytest tests/test_messaging.py -v 
 
 # ─── Fixtures ───────────────────────────────────────────────
 

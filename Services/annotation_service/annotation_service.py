@@ -1,7 +1,7 @@
 import json
 import uuid
-import time
 from datetime import datetime, timezone
+
 from Messaging.broker import Broker
 from databases.document_db.document_db import DocumentDB
 from Messaging.topics import (
@@ -16,29 +16,18 @@ from Messaging.topics import (
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
-def simulate_annotation(image_id: str) -> dict:
-    """
-    Simulated annotation.
-    Replace this with real annotation logic later.
-    """
-    time.sleep(1)  # simulate annotation time
-    return {
-        "image_id": image_id,
-        "objects": [
-            {"label": "cat", "confidence": 0.95, "bbox": [10, 20, 100, 200]},
-            {"label": "couch", "confidence": 0.88, "bbox": [0, 150, 300, 400]}
-        ],
-        "annotated_at": get_timestamp()
-    }
-
 def handle_annotation_storing(message):
-    """Handles incoming annotation.storing events."""
+    image_id = None
+    batch_id = None
+
     try:
         data = json.loads(message["data"])
         payload = data.get("payload", {})
+
         image_id = payload.get("image_id")
         batch_id = payload.get("batch_id")
         path = payload.get("path")
+        annotation = payload.get("annotation", {})
 
         print(f"\n[Annotation Service] Received image: {image_id}")
 
@@ -58,12 +47,7 @@ def handle_annotation_storing(message):
         })
         print(f"[Annotation Service] image.annotating published for: {image_id}")
 
-        # Step 2 — simulate annotation
-        annotation = simulate_annotation(image_id)
-        print(f"[Annotation Service] Annotation complete for: {image_id}")
-        print(f"[Annotation Service] Found {len(annotation['objects'])} objects")
-
-        # Step 3 — publish annotation.storing (saving to document DB)
+        # Step 2 — store real annotation JSON in MongoDB
         db = DocumentDB()
         db.store_annotation(
             image_id=image_id,
@@ -71,7 +55,9 @@ def handle_annotation_storing(message):
             path=path,
             annotation=annotation
         )
-        # Step 4 — publish annotation.stored
+        print(f"[Annotation Service] Stored annotation in MongoDB for: {image_id}")
+
+        # Step 3 — publish annotation.stored
         broker.publish(ANNOTATION_STORED, {
             "type": "publish",
             "topic": ANNOTATION_STORED,
@@ -86,7 +72,7 @@ def handle_annotation_storing(message):
         })
         print(f"[Annotation Service] annotation.stored published for: {image_id}")
 
-        # Step 5 — publish image.annotated
+        # Step 4 — publish image.annotated
         broker.publish(IMAGE_ANNOTATED, {
             "type": "publish",
             "topic": IMAGE_ANNOTATED,
@@ -94,6 +80,7 @@ def handle_annotation_storing(message):
             "payload": {
                 "image_id": image_id,
                 "batch_id": batch_id,
+                "path": path,
                 "timestamp": get_timestamp()
             }
         })
@@ -107,6 +94,7 @@ def handle_annotation_storing(message):
             "payload": {
                 "image_id": image_id,
                 "batch_id": batch_id,
+                "path": path,
                 "annotation": annotation,
                 "timestamp": get_timestamp()
             }

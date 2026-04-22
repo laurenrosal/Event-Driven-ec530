@@ -1,90 +1,35 @@
-import json
-import uuid
-import time
+import hashlib
 import random
-from datetime import datetime, timezone
-from Messaging.broker import Broker
-from Messaging.topics import (
-    QUERY_SUBMITTED,
-    QUERY_COMPLETED,
-)
+from databases.vector_db.vector_db import VectorDB
 
-def get_timestamp():
-    return datetime.now(timezone.utc).isoformat()
+class QueryService:
+    def __init__(self):
+        self.db = VectorDB()
 
-def simulate_vector_search(description: str) -> list:
-    """
-    Simulated vector search.
-    Replace this with real FAISS/vector DB logic later.
-    """
-    time.sleep(1)  # simulate search time
-    # return fake matching images
-    sample_images = [
-        "images/cat.jpg",
-        "images/dog.jpg",
-        "images/beach.jpg",
-        "images/street_1042.jpg",
-        "images/city_night.jpg",
-    ]
-    # return top 3 random matches with fake similarity scores
-    matches = random.sample(sample_images, min(3, len(sample_images)))
-    return [
-        {
-            "image_id": f"img_{uuid.uuid4().hex[:8]}",
-            "path": match,
-            "similarity_score": round(random.uniform(0.75, 0.99), 4)
-        }
-        for match in matches
-    ]
+    def text_to_vector(self, description: str, dim: int = 128) -> list:
+        """
+        Deterministic fake query embedding.
+        Same query always gives same vector.
+        """
+        seed_hash = hashlib.md5(description.lower().strip().encode()).hexdigest()
+        seed_int = int(seed_hash[:8], 16)
 
-def handle_query_submitted(message):
-    """Handles incoming query.submitted events."""
-    try:
-        data = json.loads(message["data"])
-        payload = data.get("payload", {})
-        query_id = payload.get("query_id")
-        description = payload.get("description")
+        rng = random.Random(seed_int)
+        return [round(rng.uniform(-1, 1), 4) for _ in range(dim)]
 
-        print(f"\n[Query Service] Received query: {query_id}")
-        print(f"[Query Service] Searching for: '{description}'")
-
-        broker = Broker()
-
-        # validate description is not empty
+    def search_images(self, description: str, top_k: int = 3):
         if not description or description.strip() == "":
             raise ValueError("Search description cannot be empty")
 
-        # Step 1 — simulate vector search
-        results = simulate_vector_search(description)
-        print(f"[Query Service] Found {len(results)} matches")
+        query_vector = self.text_to_vector(description)
+        results = self.db.search(query_vector, top_k=top_k)
 
-        # Step 2 — publish query.completed with results
-        broker.publish(QUERY_COMPLETED, {
-            "type": "publish",
-            "topic": QUERY_COMPLETED,
-            "event_id": f"evt_{uuid.uuid4().hex[:8]}",
-            "payload": {
-                "query_id": query_id,
-                "description": description,
-                "results": results,
-                "total_matches": len(results),
-                "timestamp": get_timestamp()
+        return [
+            {
+                "image_id": item.get("image_id"),
+                "file_name": item.get("file_name"),
+                "path": item.get("path"),
+                "similarity_score": item.get("similarity_score")
             }
-        })
-        print(f"[Query Service] query.completed published for: {query_id}")
-        print(f"\n[Query Service] Results for '{description}':")
-        for i, result in enumerate(results, 1):
-            print(f"  {i}. {result['path']} (score: {result['similarity_score']})")
-
-    except Exception as e:
-        print(f"[Query Service] ERROR: {e}")
-
-def main():
-    broker = Broker()
-    print("[Query Service] Starting up...")
-    print("[Query Service] Listening for query.submitted events...\n")
-    broker.subscribe(QUERY_SUBMITTED, handle_query_submitted)
-    broker.listen()
-
-if __name__ == "__main__":
-    main()
+            for item in results
+        ]
