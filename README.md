@@ -9,21 +9,22 @@ Lauren Rosales
 
 A modular event-driven pipeline for image annotation and retrieval. The system has two flows:
 
-- **Upload flow** — batch upload images through the CLI, each image is tracked individually through processing, annotation, and embedding, stored in MongoDB and FAISS.
-- **Search flow** — type a description through the CLI, query the vector database, and get matching images back.
+- **Upload flow** — upload images through the CLI, each image is tracked individually through YOLO object detection, annotation storage in MongoDB, CLIP embedding generation, and vector storage in FAISS.
+- **Search flow** — type a description through the CLI, Claude expands the query, FAISS finds the closest matching images, and Claude explains the results.
 
-No AI models are trained. Inference and embedding are simulated for now and will be swapped out with real implementations in week 2.
-
-![My Image](architecture.png)
-![My Image](flow.png)
+![Architecture](architecture.png)
+![Flow](flow.png)
 
 ---
 
 ## Stack
 
 - **Messaging** — Redis Cloud (pub/sub)
+- **Object Detection** — YOLOv8 (COCO pre-trained)
 - **Document DB** — MongoDB Atlas (annotation JSON)
-- **Vector DB** — FAISS (embeddings) test
+- **Embeddings** — CLIP (openai/clip-vit-base-patch32, 512-dim)
+- **Vector DB** — FAISS (cosine similarity)
+- **Query Intelligence** — Claude API (query expansion + result explanation)
 
 ---
 
@@ -32,19 +33,18 @@ No AI models are trained. Inference and embedding are simulated for now and will
 ```
 Event-driven/
 ├── Services/
-│   ├── cli_service/
-│   ├── upload_service/
-│   ├── image_processing_service/
-│   ├── annotation_service/
-│   ├── embedding_service/
-│   └── query_service/
+│   ├── cli_service/              # Entry point for upload, search, correction
+│   ├── upload_service/           # Validates and tracks each image
+│   ├── image_processing_service/ # YOLO object detection
+│   ├── annotation_service/       # Stores annotations, handles corrections
+│   ├── embedding_service/        # CLIP embedding generation
+│   └── query_service/            # Claude + FAISS search
 ├── databases/
-│   ├── document_db/
-│   └── vector_db/
+│   ├── document_db/              # MongoDB interface
+│   └── vector_db/                # FAISS interface
 ├── Messaging/
-│   ├── broker.py
-│   ├── topics.py
-│   └── event_generator.py
+│   ├── broker.py                 # Redis pub/sub interface
+│   └── topics.py                 # All topic name constants
 ├── tests/
 ├── .env
 └── README.md
@@ -55,7 +55,7 @@ Event-driven/
 ## Setup
 
 ```bash
-pip install redis pymongo faiss-cpu numpy python-dotenv
+pip install redis pymongo faiss-cpu numpy python-dotenv torch torchvision transformers Pillow ultralytics requests
 ```
 
 Create a `.env` file in the root:
@@ -65,6 +65,7 @@ REDIS_PORT=your-port
 REDIS_PASSWORD=your-password
 MONGO_URI=your-mongo-uri
 MONGO_DB_NAME=event_driven_db
+ANTHROPIC_API_KEY=your-api-key
 ```
 
 ---
@@ -86,35 +87,42 @@ python3 -m Services.annotation_service.annotation_service
 # Terminal 4
 python3 -m Services.embedding_service.embedding_service
 
-# Terminal 5 — upload images
-python3 -m Services.cli_service.cli upload images/cat.jpg images/dog.jpg
+# Terminal 5 — upload an image
+python3 -m Services.cli_service.cli upload images/cat.jpg
 
 # Terminal 5 — search
 python3 -m Services.cli_service.cli search "a cat with a halloween costume"
+
+# Terminal 5 — correct an annotation
+python3 -m Services.cli_service.cli correct img_xxxx "cat" "kitten"
 ```
 
 ---
 
 ## Topics
 
-| Topic | Description |
-|---|---|
-| `image.submitted` | CLI uploads image |
-| `image.received` | Upload service confirms receipt |
-| `image.validated` | File type confirmed valid |
-| `image.invalid` | File type rejected |
-| `image.processing` | Handed to image processing |
-| `image.processing.complete` | Processing done |
-| `annotation.storing` | Sent to annotation service |
-| `annotation.stored` | Saved to MongoDB |
-| `image.annotating` | Annotation in progress |
-| `image.annotated` | Annotation complete |
-| `embedding.processing` | Sent to embedding service |
-| `embedding.complete` | Embedding generated |
-| `vector.storing` | Sending to FAISS |
-| `vector.stored` | Saved to FAISS |
-| `query.submitted` | CLI submits search |
-| `query.completed` | Results returned |
+| Topic | Publisher | Subscriber |
+|---|---|---|
+| `image.submitted` | CLI | Upload service |
+| `image.received` | Upload service | — |
+| `image.validated` | Upload service | — |
+| `image.invalid` | Upload service | — |
+| `image.processing` | Upload service | Image processing service |
+| `image.processing.complete` | Image processing service | — |
+| `annotation.storing` | Image processing service | Annotation service |
+| `image.annotating` | Annotation service | — |
+| `annotation.stored` | Annotation service | — |
+| `image.annotated` | Annotation service | — |
+| `annotation.corrected` | CLI | Annotation service |
+| `embedding.processing` | Annotation service | Embedding service |
+| `embedding.complete` | Embedding service | — |
+| `vector.storing` | Embedding service | — |
+| `vector.stored` | Embedding service | — |
+| `image.failed` | Any service on error | — |
+| `annotation.failed` | Annotation service on error | — |
+| `embedding.failed` | Embedding service on error | — |
+| `query.submitted` | CLI | Query service |
+| `query.completed` | Query service | — |
 
 ---
 
@@ -124,11 +132,14 @@ python3 -m Services.cli_service.cli search "a cat with a halloween costume"
 python3 -m pytest tests/ -v
 ```
 
+28 tests covering event structure, malformed event rejection, valid file types, idempotency, mock broker, and topic definitions.
+
 ---
 
-## What's simulated (week 2 will replace these)
+## CLI Commands
 
-- Image processing — returns fake metadata
-- Annotation — returns hardcoded object labels
-- Embedding — returns random 128-dim vector
-- Vector search — returns random matches
+| Command | Description |
+|---|---|
+| `cli upload images/cat.jpg` | Upload a single image |
+| `cli search "a dog in a park"` | Search for matching images |
+| `cli correct img_xxxx "cat" "kitten"` | Correct an annotation |
