@@ -106,8 +106,8 @@ def handle_image_submitted(message):
                 "reason": str(e),
                 "timestamp": get_timestamp()
             }
-    })
-    print(f"[Upload Service] image.failed published for: {image_id}")
+        })
+        print(f"[Upload Service] image.failed published for: {image_id}")
 
 def main():
     broker = Broker()
