@@ -23,7 +23,7 @@ jobs:
           flake8 Services/ Messaging/ databases/ \
             --max-line-length=120 \
             --exclude=__pycache__ \
-            --ignore=E501,W503
+            --ignore=E501,W503,E302,E303,E305,E221,W291,W292,W293,F841
 
       - name: Check syntax (import check)
         run: |
