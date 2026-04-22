@@ -12,8 +12,8 @@ A modular event-driven pipeline for image annotation and retrieval. The system h
 - **Upload flow** — upload images through the CLI, each image is tracked individually through YOLO object detection, annotation storage in MongoDB, CLIP embedding generation, and vector storage in FAISS.
 - **Search flow** — type a description through the CLI, Claude expands the query, FAISS finds the closest matching images, and Claude explains the results.
 
-![Architecture](architecture.png)
-![Flow](flow.png)
+![Architecture](architecture2.png)
+![Flow](flow2.png)
 
 ---
 
