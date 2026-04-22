@@ -23,7 +23,7 @@ No AI models are trained. Inference and embedding are simulated for now and will
 
 - **Messaging** — Redis Cloud (pub/sub)
 - **Document DB** — MongoDB Atlas (annotation JSON)
-- **Vector DB** — FAISS (embeddings)
+- **Vector DB** — FAISS (embeddings) test
 
 ---
 
