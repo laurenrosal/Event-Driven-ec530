@@ -66,7 +66,6 @@ class DocumentDB:
                 return None
         except Exception as e:
             print(f"[Document DB] ERROR retrieving annotation: {e}")
-            raise
 
     def get_batch(self, batch_id: str):
         try:
@@ -78,3 +77,21 @@ class DocumentDB:
         except Exception as e:
             print(f"[Document DB] ERROR retrieving batch: {e}")
             raise
+    
+    def update_annotation(self, image_id: str, corrected_annotation: dict):
+        """Update an existing annotation with corrected data."""
+        try:
+            result = self.collection.update_one(
+                {"image_id": image_id},
+                {"$set": {
+                    "annotation": corrected_annotation,
+                    "status": "corrected",
+                    "corrected_at": get_timestamp()
+                }}
+            )
+            if result.modified_count > 0:
+                print(f"[Document DB] Annotation updated for: {image_id}")
+            else:
+                print(f"[Document DB] No changes made for: {image_id}")
+        except Exception as e:
+            print(f"[Document DB] ERROR updating annotation: {e}")

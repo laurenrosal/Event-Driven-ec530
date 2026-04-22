@@ -7,6 +7,7 @@ from databases.document_db.document_db import DocumentDB
 from Messaging.topics import (
     ANNOTATION_STORING,
     ANNOTATION_STORED,
+    ANNOTATION_CORRECTED,
     IMAGE_ANNOTATING,
     IMAGE_ANNOTATED,
     EMBEDDING_PROCESSING,
@@ -116,11 +117,58 @@ def handle_annotation_storing(message):
             }
         })
 
+def handle_annotation_corrected(message):
+    """Handles incoming annotation.corrected events."""
+    image_id = None
+    batch_id = None
+
+    try:
+        data = json.loads(message["data"])
+        payload = data.get("payload", {})
+        image_id = payload.get("image_id")
+        batch_id = payload.get("batch_id")
+        corrected_annotation = payload.get("corrected_annotation", {})
+
+        print(f"\n[Annotation Service] Correction received for: {image_id}")
+
+        db = DocumentDB()
+        existing = db.get_annotation(image_id)
+
+        if not existing:
+            print(f"[Annotation Service] No existing annotation found for: {image_id}")
+            return
+
+        # update annotation in MongoDB
+        db.update_annotation(
+            image_id=image_id,
+            corrected_annotation=corrected_annotation
+        )
+        print(f"[Annotation Service] Annotation corrected in MongoDB for: {image_id}")
+
+        broker = Broker()
+        broker.publish(ANNOTATION_STORED, {
+            "type": "publish",
+            "topic": ANNOTATION_STORED,
+            "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+            "payload": {
+                "image_id": image_id,
+                "batch_id": batch_id,
+                "annotation": corrected_annotation,
+                "corrected": True,
+                "timestamp": get_timestamp()
+            }
+        })
+        print(f"[Annotation Service] annotation.stored published after correction for: {image_id}")
+
+    except Exception as e:
+        print(f"[Annotation Service] ERROR in correction: {e}")
+
 def main():
     broker = Broker()
     print("[Annotation Service] Starting up...")
-    print("[Annotation Service] Listening for annotation.storing events...\n")
+    print("[Annotation Service] Listening for annotation.storing and annotation.corrected events...\n")
     broker.subscribe(ANNOTATION_STORING, handle_annotation_storing)
+    broker.subscribe(ANNOTATION_CORRECTED, handle_annotation_corrected)
     broker.listen()
 
 if __name__ == "__main__":

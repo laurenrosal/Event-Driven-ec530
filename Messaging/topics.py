@@ -11,6 +11,7 @@ IMAGE_PROCESSING_COMPLETE   = "image.processing.complete"
 # ─── Document DB ────────────────────────────────────────────
 ANNOTATION_STORING          = "annotation.storing"
 ANNOTATION_STORED           = "annotation.stored"
+ANNOTATION_CORRECTED        = "annotation.corrected"
 
 # ─── Annotation ─────────────────────────────────────────────
 IMAGE_ANNOTATING            = "image.annotating"
@@ -40,6 +41,7 @@ ALL_TOPICS = [
     IMAGE_PROCESSING_COMPLETE,
     ANNOTATION_STORING,
     ANNOTATION_STORED,
+    ANNOTATION_CORRECTED,
     IMAGE_ANNOTATING,
     IMAGE_ANNOTATED,
     EMBEDDING_PROCESSING,
