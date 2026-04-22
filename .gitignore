@@ -1,3 +1,11 @@
 .env
 images
 documents
+.DS_Store
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+yolov8n.pt
+databases/vector_db/faiss.index
+databases/vector_db/image_map.json
