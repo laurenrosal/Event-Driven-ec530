@@ -8,9 +8,9 @@ def get_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 class VectorDB:
-    def __init__(self, dimension=128):
+    def __init__(self, dimension=512):
         self.dimension = dimension
-        self.index = faiss.IndexFlatL2(dimension)
+        self.index = faiss.IndexFlatIP(dimension)
         self.image_map = {}
         self.next_id = 0
         self.index_file = "databases/vector_db/faiss.index"
@@ -34,11 +34,13 @@ class VectorDB:
 
     def store_vector(self, image_id: str, batch_id: str, path: str, vector: list):
         try:
-            if self.image_exists(image_id):
-                print(f"[Vector DB] Vector already exists for: {image_id} — skipping")
-                return
+            for key, val in self.image_map.items():
+                if val["image_id"] == image_id:
+                    print(f"[Vector DB] Vector already exists for: {image_id} — skipping")
+                    return
 
             np_vector = np.array([vector], dtype=np.float32)
+            faiss.normalize_L2(np_vector)  # ← add this
             self.index.add(np_vector)
 
             self.image_map[str(self.next_id)] = {
@@ -64,6 +66,7 @@ class VectorDB:
                 return []
 
             np_vector = np.array([query_vector], dtype=np.float32)
+            faiss.normalize_L2(np_vector)
             distances, indices = self.index.search(np_vector, min(top_k, self.index.ntotal))
 
             results = []

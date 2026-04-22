@@ -8,11 +8,9 @@ import random
 from datetime import datetime, timezone
 
 from Messaging.broker import Broker
-from Messaging.topics import IMAGE_SUBMITTED
+from Messaging.topics import IMAGE_SUBMITTED, QUERY_SUBMITTED
 from databases.document_db.document_db import DocumentDB
 from databases.vector_db.vector_db import VectorDB
-
-
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
@@ -132,34 +130,27 @@ def search_images(description: str, top_k: int = 3):
         return
 
     try:
-        vector_db = VectorDB()
-        query_vector = text_to_vector(description)
-        results = vector_db.search(query_vector, top_k=top_k)
-
-        matches = []
-        for item in results:
-            path = item.get("path", "")
-            file_name = os.path.basename(path) if path else None
-            matches.append({
-                "image_id": item.get("image_id"),
-                "file_name": file_name,
-                "path": path,
-                "similarity_score": item.get("similarity_score")
-            })
-
-        print(json.dumps({
-            "status": "success",
-            "query": description,
-            "matches": [m["file_name"] for m in matches if m["file_name"]],
-            "results": matches
-        }, indent=2))
+        broker = Broker()
+        event = {
+            "type": "publish",
+            "topic": QUERY_SUBMITTED,
+            "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+            "payload": {
+                "query_id": f"qry_{uuid.uuid4().hex[:8]}",
+                "description": description,
+                "top_k": top_k,
+                "timestamp": get_timestamp()
+            }
+        }
+        broker.publish(QUERY_SUBMITTED, event)
+        print(f"\n[CLI] Search submitted: '{description}'")
+        print("[CLI] Results will appear in the query service terminal...")
 
     except Exception as e:
         print(json.dumps({
             "status": "error",
             "message": str(e)
         }, indent=2))
-
 
 def main():
     parser = argparse.ArgumentParser(prog="cli")
