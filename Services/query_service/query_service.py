@@ -1,7 +1,5 @@
 import json
 import uuid
-import hashlib
-import random
 import requests
 import torch
 from datetime import datetime, timezone
