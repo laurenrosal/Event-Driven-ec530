@@ -8,18 +8,16 @@ from Messaging.topics import (
     IMAGE_INVALID,
     IMAGE_PROCESSING,
     IMAGE_FAILED,
+    ANNOTATION_STORING,
+    ANNOTATION_STORED,
+    ANNOTATION_CORRECTED,
+    EMBEDDING_PROCESSING,
     QUERY_SUBMITTED,
     QUERY_COMPLETED,
     ALL_TOPICS
 )
-# python3 -m pytest tests/test_messaging.py -v 
 
-# ─── Fixtures ───────────────────────────────────────────────
-
-@pytest.fixture
-def mock_broker():
-    broker = MagicMock(spec=Broker)
-    return broker
+# ─── Helpers ────────────────────────────────────────────────
 
 def make_image_event(path="images/cat.jpg"):
     import uuid
@@ -50,6 +48,29 @@ def make_query_event(description="a cat with a halloween costume"):
         }
     }
 
+def make_correction_event(image_id="img_001"):
+    import uuid
+    from datetime import datetime, timezone
+    return {
+        "type": "publish",
+        "topic": ANNOTATION_CORRECTED,
+        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+        "payload": {
+            "image_id": image_id,
+            "corrected_annotation": {
+                "original_label": "cat",
+                "corrected_label": "kitten"
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+# ─── Fixtures ────────────────────────────────────────────────
+
+@pytest.fixture
+def mock_broker():
+    return MagicMock(spec=Broker)
+
 # ─── Valid event structure ───────────────────────────────────
 
 def test_image_event_has_required_fields():
@@ -66,6 +87,13 @@ def test_query_event_has_required_fields():
     assert "event_id" in event
     assert "payload" in event
 
+def test_correction_event_has_required_fields():
+    event = make_correction_event()
+    assert "type" in event
+    assert "topic" in event
+    assert "event_id" in event
+    assert "payload" in event
+
 def test_image_event_has_correct_topic():
     event = make_image_event()
     assert event["topic"] == IMAGE_SUBMITTED
@@ -73,6 +101,10 @@ def test_image_event_has_correct_topic():
 def test_query_event_has_correct_topic():
     event = make_query_event()
     assert event["topic"] == QUERY_SUBMITTED
+
+def test_correction_event_has_correct_topic():
+    event = make_correction_event()
+    assert event["topic"] == ANNOTATION_CORRECTED
 
 def test_image_event_payload_has_image_id():
     event = make_image_event()
@@ -85,6 +117,11 @@ def test_image_event_payload_has_batch_id():
 def test_image_event_payload_has_timestamp():
     event = make_image_event()
     assert "timestamp" in event["payload"]
+
+def test_correction_event_has_corrected_annotation():
+    event = make_correction_event()
+    assert "corrected_annotation" in event["payload"]
+    assert "corrected_label" in event["payload"]["corrected_annotation"]
 
 # ─── Malformed events ────────────────────────────────────────
 
@@ -150,6 +187,23 @@ def test_duplicate_events_call_publish_twice(mock_broker):
     mock_broker.publish(event["topic"], event)
     assert mock_broker.publish.call_count == 2
 
+# ─── Mock broker tests (no live Redis needed) ────────────────
+
+def test_mock_broker_publish_called(mock_broker):
+    event = make_image_event()
+    mock_broker.publish(event["topic"], event)
+    mock_broker.publish.assert_called_once()
+
+def test_mock_broker_correction_published(mock_broker):
+    event = make_correction_event()
+    mock_broker.publish(event["topic"], event)
+    mock_broker.publish.assert_called_once_with(ANNOTATION_CORRECTED, event)
+
+def test_mock_broker_query_published(mock_broker):
+    event = make_query_event()
+    mock_broker.publish(event["topic"], event)
+    mock_broker.publish.assert_called_once_with(QUERY_SUBMITTED, event)
+
 # ─── All topics defined ──────────────────────────────────────
 
 def test_all_topics_list_not_empty():
@@ -163,3 +217,9 @@ def test_query_submitted_in_all_topics():
 
 def test_image_failed_in_all_topics():
     assert IMAGE_FAILED in ALL_TOPICS
+
+def test_annotation_corrected_in_all_topics():
+    assert ANNOTATION_CORRECTED in ALL_TOPICS
+
+def test_embedding_processing_in_all_topics():
+    assert EMBEDDING_PROCESSING in ALL_TOPICS
