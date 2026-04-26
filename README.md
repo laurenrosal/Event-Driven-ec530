@@ -4,6 +4,11 @@ EC530 Project 2 — Boston University
 Lauren Rosales
 
 ---
+## Demo
+
+[Watch the demo on YouTube](https://youtu.be/0B953foO7Yk)
+
+---
 
 ## Overview
 
