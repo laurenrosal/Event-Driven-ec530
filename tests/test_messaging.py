@@ -1,4 +1,7 @@
 import pytest
+import random
+import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 from Messaging.broker import Broker
 from Messaging.topics import (
@@ -223,3 +226,75 @@ def test_annotation_corrected_in_all_topics():
 
 def test_embedding_processing_in_all_topics():
     assert EMBEDDING_PROCESSING in ALL_TOPICS
+
+
+# ─── Random event tests ──────────────────────────────────────
+
+def make_random_image_event():
+    """Generate a random valid image event."""
+    extensions = ["jpg", "jpeg", "png", "gif", "webp"]
+    random_name = uuid.uuid4().hex[:8]
+    random_ext = random.choice(extensions)
+    return {
+        "type": "publish",
+        "topic": IMAGE_SUBMITTED,
+        "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+        "payload": {
+            "batch_id": f"batch_{uuid.uuid4().hex[:8]}",
+            "image_id": f"img_{uuid.uuid4().hex[:8]}",
+            "path": f"images/{random_name}.{random_ext}",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+def test_random_valid_events_have_required_fields():
+    """Generate 10 random events and check they all have required fields."""
+    for _ in range(10):
+        event = make_random_image_event()
+        assert "type" in event
+        assert "topic" in event
+        assert "event_id" in event
+        assert "payload" in event
+
+def test_random_valid_events_have_unique_ids():
+    """Generate 10 random events and check all event IDs are unique."""
+    events = [make_random_image_event() for _ in range(10)]
+    event_ids = [e["event_id"] for e in events]
+    assert len(event_ids) == len(set(event_ids))
+
+def test_random_valid_events_accepted_by_broker():
+    """Generate 5 random valid image events and publish them all."""
+    broker = Broker()
+    for _ in range(5):
+        event = make_random_image_event()
+        broker.publish(IMAGE_SUBMITTED, event)
+
+def test_random_invalid_file_types_rejected():
+    """Generate random invalid file types and make sure they are all rejected."""
+    broker = Broker()
+    invalid_extensions = ["pdf", "txt", "csv", "docx", "mp4", "exe"]
+    for ext in invalid_extensions:
+        bad_event = {
+            "type": "publish",
+            "topic": IMAGE_SUBMITTED,
+            "event_id": f"evt_{uuid.uuid4().hex[:8]}",
+            "payload": {
+                "batch_id": f"batch_{uuid.uuid4().hex[:8]}",
+                "image_id": f"img_{uuid.uuid4().hex[:8]}",
+                "path": f"documents/file.{ext}",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        }
+        with pytest.raises(ValueError):
+            broker.publish(IMAGE_SUBMITTED, bad_event)
+
+def test_random_batch_all_same_batch_id():
+    """Generate a batch of random events and verify they share the same batch_id."""
+    batch_id = f"batch_{uuid.uuid4().hex[:8]}"
+    events = []
+    for _ in range(5):
+        event = make_random_image_event()
+        event["payload"]["batch_id"] = batch_id
+        events.append(event)
+    for event in events:
+        assert event["payload"]["batch_id"] == batch_id
