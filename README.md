@@ -92,13 +92,16 @@ python3 -m Services.annotation_service.annotation_service
 # Terminal 4
 python3 -m Services.embedding_service.embedding_service
 
-# Terminal 5 — upload an image
+# Terminal 5 
+python3 -m Services.query_service.query_service
+
+# Terminal 6 — upload an image
 python3 -m Services.cli_service.cli upload images/cat.jpg
 
-# Terminal 5 — search
+# Terminal 6 — search
 python3 -m Services.cli_service.cli search "a cat with a halloween costume"
 
-# Terminal 5 — correct an annotation
+# Terminal 6 — correct an annotation
 python3 -m Services.cli_service.cli correct img_xxxx "cat" "kitten"
 ```
 
