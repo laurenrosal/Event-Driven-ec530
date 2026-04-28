@@ -140,7 +140,7 @@ python3 -m Services.cli_service.cli correct img_xxxx "cat" "kitten"
 python3 -m pytest tests/ -v
 ```
 
-28 tests covering event structure, malformed event rejection, valid file types, idempotency, mock broker, and topic definitions.
+35 tests covering event structure, malformed event rejection, valid file types, idempotency, mock broker, randomize messages and topic definitions.
 
 ---
 
